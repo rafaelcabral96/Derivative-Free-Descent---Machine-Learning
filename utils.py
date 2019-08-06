@@ -3,17 +3,25 @@ import time
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from scipy import stats
+
 
 def timerfunc(func):
     #timer decorator
     def function_timer(*args, **kwargs):
         start = time.clock()
+        start_cputime = time.process_time()
+
         value = func(*args, **kwargs)
-        end = time.clock()
-        runtime = end - start
-        msg = "The CPU time for {func} was {time:.5f} seconds"
+
+        end_cputime = time.process_time()
+        end = time.clock() 
+        runtime_cpu = end_cputime - start_cputime
+        runtime = end - start  
+        msg = "The clock time (CPU time) for {func} was {time:.5f} ({cpu_time:.5f}) seconds"
         print(msg.format(func=func.__name__,
-                         time=runtime))
+                         time=runtime,
+                         cpu_time = runtime_cpu))
         return value
     return function_timer
 
@@ -99,7 +107,13 @@ def get_mean(params):
     return params_mean
 
 def get_var(params,params_mean):
-     return np.mean([ np.linalg.norm(param-params_mean)**2 for param in params])
+     return np.var(params, axis = 0)
+     #return np.mean([ np.linalg.norm(param-params_mean)**2 for param in params])
+
+def normal_test(paramsf):
+    k, _ = stats.normaltest( (paramsf- np.mean(paramsf,axis=0))/np.var(paramsf,axis=0) , axis = 0)
+    print(np.mean(k))
+    #print("Normality test p-value - percentage of particles rejected: "  + str(1 - np.mean(np.greater(p,0.05))))
 
 #PLOTS-----------------------------------------------
 
