@@ -27,4 +27,4 @@ to compute the cloud variance leads to significantly better results in Neural Ne
 
 2. Model architecture and activation function restrictions due to backpropagation are not present in derivative-free methods
 
-3. So far, better than other derivative-free methods when training Neural Networks -> Generic Algorithms, Simulated Annealing, 
+3. So far, better than other derivative-free methods when training Neural Networks -> Generic Algorithms, Simulated Annealing, hill climb, random hill climb available the package Python *mlrose*
