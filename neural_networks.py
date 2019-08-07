@@ -42,6 +42,8 @@ def single_layer_forward_propagation(A_prev, W_curr, b_curr, activation="relu"):
         activation_func = softmax
     elif activation is "linear":
         activation_func = linear
+    elif activation is "step":
+        activation_func = step
     else:
         raise Exception('Non-supported activation function')
         
@@ -87,6 +89,8 @@ def get_cost_value(Y_hat, Y, type = 'binary_cross_entropy'):
         cost = log_loss(Y,np.transpose(Y_hat))
     elif type == 'cross_entropy_T':
         cost = log_loss(np.transpose(Y),np.transpose(Y_hat))
+    elif type == 'error_binary_classification':
+        cost = 1.0-(Y_hat == Y).mean()
     elif type == "rmse":    
         cost =  np.mean( (Y - Y_hat)**2)      
     else:
@@ -182,6 +186,11 @@ def sigmoid(Z):
 
 def relu(Z):
     return np.maximum(0,Z)
+
+def step(Z):
+    step = np.ones(Z.shape)
+    step[Z<0] = 0
+    return step
 
 def softmax(Z):
     e_Z = np.exp(Z - np.max(Z))

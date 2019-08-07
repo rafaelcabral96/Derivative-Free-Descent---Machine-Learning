@@ -6,6 +6,11 @@ import matplotlib.pyplot as plt
 from scipy import stats
 
 
+def load_mnist(one_hot=True):
+    from tensorflow.examples.tutorials.mnist import input_data  
+    mnist = input_data.read_data_sets('Datasets/MNIST_data/', one_hot=one_hot)
+    return mnist.train.images, mnist.train.labels
+
 def timerfunc(func):
     #timer decorator
     def function_timer(*args, **kwargs):
