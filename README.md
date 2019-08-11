@@ -24,7 +24,7 @@ For a *function* object there are three main methods (see examples):
 
 2. (Multivariate) linear regression, which uses linear activation function, can be done (see Example 1.)
 
-3. Steps function can be used for binary classification (see Example 5.). Steps activation functions are probably the simplest and fasted to compute.
+3. Steps function can be used for binary classification (see Example 5.). I think this is something new. Steps activation functions are probably the simplest and fasted to compute.
 
 4. Since there is no backpropagation, we do not have to worry with the gradients collapsing or exploding, therefore there is more freedom when defining the initial values of the weights. I should try other initialization schemes.
 
@@ -61,11 +61,13 @@ to compute the cloud variance leads to significantly better results in Neural Ne
 
 3. Force the clouds to have a certain variance in order to avoid being stuck in local minimuns
 
-4. L2 norm between particles increases with the dimension of parameter space. This requires choosing different kernel_a for different training sessions. Maybe use an heuristic to choose kernel_a? 
+4. Create procedure to find optimal learning rate and adapt it over iterations. I tried adapting rprop to the non-derivative case and others schemes but still with no consistent improvements to different problems.
+
+5. L2 norm between particles increases with the dimension of parameter space. This requires choosing different kernel_a for different training sessions. Maybe use an heuristic to choose kernel_a? 
 
 sum_i(kernel(i,j)) belongs in [1/N,N] ranging from no iteraction between particles to maximum interaction between particles.
 
-sum_i(kernel(i,j)) / N can be seen as a measure for the intensity between particles
+sum_i(kernel(i,j)) / N can be seen as a measure for the intereraction intensity between particles
 
 Maybe choose kernel_a such that  sum_i(kernel(i,j))/N ~ 0.5 i.e the interection intensity is 50% 
 
