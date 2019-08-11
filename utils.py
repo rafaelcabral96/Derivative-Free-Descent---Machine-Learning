@@ -3,13 +3,8 @@ import time
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from scipy import stats
+#from scipy import stats
 
-
-def load_mnist(one_hot=True):
-    from tensorflow.examples.tutorials.mnist import input_data  
-    mnist = input_data.read_data_sets('Datasets/MNIST_data/', one_hot=one_hot)
-    return mnist.train.images, mnist.train.labels
 
 def timerfunc(func):
     #timer decorator
@@ -23,7 +18,7 @@ def timerfunc(func):
         end = time.clock() 
         runtime_cpu = end_cputime - start_cputime
         runtime = end - start  
-        msg = "The clock time (CPU time) for {func} was {time:.5f} ({cpu_time:.5f}) seconds"
+        msg = "\nThe clock time (CPU time) for {func} was {time:.5f} ({cpu_time:.5f}) seconds"
         print(msg.format(func=func.__name__,
                          time=runtime,
                          cpu_time = runtime_cpu))
@@ -31,61 +26,84 @@ def timerfunc(func):
     return function_timer
 
 
-def flatten_weights(params,N_nn):
-    tensor_names = list(params[0].keys())
+def flatten_weights(cloud,N):
+    tensor_names = list(cloud[0].keys())
 
     nn_shape = []
-    for param in params[0]:
-        nn_shape.append(np.shape(params[0][param]))
+    for param in cloud[0]:
+        nn_shape.append(np.shape(cloud[0][param]))
 
-    paramsf = []
-    for nn in range(N_nn):
+    cloudf = []
+    for nn in range(N):
         flatten = np.array([])
-        for param in params[nn].values():
+        for param in cloud[nn].values():
             flatten = np.concatenate((flatten,np.ndarray.flatten(param)),axis=None)
-        paramsf.append(flatten)   
-    paramsf = np.array(paramsf)
+        cloudf.append(flatten)   
+    cloudf = np.array(cloudf)
 
-    return paramsf, nn_shape, tensor_names
+    return cloudf, nn_shape, tensor_names
 
-def flatten_weights_gradients(params, gradients, N_nn):
-    n_params = len(params[0])
-
-    weight_names = list(params[0].keys())
+def flatten_weights_gradients(cloud, gradients, N):
+    n_params = len(cloud[0])
+    weight_names = list(cloud[0].keys())
     nn_shape = []
-    for param in params[0]:
-        nn_shape.append(np.shape(params[0][param]))
+    for param in cloud[0]:
+        nn_shape.append(np.shape(cloud[0][param]))
             
-    paramsf = []
+    cloudf = []
     gradientsf = []
-    for nn in range(N_nn):
+    for nn in range(N):
         flatten = np.array([])
         flatten_g = np.array([])
         for param in range(n_params):
-            flatten_temp = np.ndarray.flatten(params[nn][weight_names[param]])
+            flatten_temp = np.ndarray.flatten(cloud[nn][weight_names[param]])
             flatten = np.concatenate((flatten,flatten_temp),axis=None)
             flatten_g_temp =  np.ndarray.flatten(gradients[nn]["d" + weight_names[param]])
             flatten_g = np.concatenate((flatten_g,flatten_g_temp),axis=None)
-        paramsf.append(flatten)    
+        cloudf.append(flatten)    
         gradientsf.append(flatten_g)
-    paramsf = np.array(paramsf)
+    cloudf = np.array(cloudf)
     gradientsf = np.array(gradientsf)
 
-    return paramsf, gradientsf, nn_shape, weight_names
+    return cloudf, gradientsf, nn_shape, weight_names
 
-def unflatten_weights(paramsf,shapes,weight_names,N_nn):
+def unflatten_weights(cloudf,shapes,weight_names,N):
     n_params = len(shapes)
     new_nn_weights = []
-    for nn in range(N_nn):
+    for nn in range(N):
         init = 0
         new_params_nn = {}
         for param in range(n_params):
             num_params = int(np.prod(shapes[param]))
-            new_params_nn[weight_names[param]] = np.reshape(paramsf[nn][init:(init + num_params)],shapes[param])
+            new_params_nn[weight_names[param]] = np.reshape(cloudf[nn][init:(init + num_params)],shapes[param])
             init += num_params
         new_nn_weights.append(new_params_nn)
 
     return new_nn_weights
+
+def kernel_a_finder(cloudf, N):
+
+    print("Finding kernel constant...")
+
+    cloud_diff_matrix = cloudf[:,np.newaxis] - cloudf
+    norm = np.sum(cloud_diff_matrix**2, axis=2) 
+    kernel_a_pool = [0.00001, 0.0005, 0.0001, 0.0005,0.001,0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10, 20, 50, 100]
+    for kernel_a in kernel_a_pool:
+        if(np.mean(np.einsum('ij -> i',np.exp(-kernel_a*norm))/N)) < 0.5:
+            break
+
+    print("Kernel constant found: " + str(kernel_a))
+    return kernel_a
+
+def gradient(func, x, h = None):
+    if h is None:
+        # Note the hard coded value found here is the square root of the
+        # floating point precision, which can be found from the function
+        # call np.sqrt(np.finfo(float).eps).
+        h = 1.49011611938477e-08
+    xph = x + h
+    dx = xph - x
+    return (func(xph) - func(x)) / dx
 
 def convert_prob_into_class(probs):
     probs_ = np.copy(probs)
@@ -93,32 +111,21 @@ def convert_prob_into_class(probs):
     probs_[probs_ <= 0.5] = 0
     return probs_
 
-def norm2(params_i,params_j): 
-    #l2 norm squared
-    return np.sum(np.subtract(params_i,params_j)**2)
-
-def kernel(params_i,params_j,const): 
-    n = norm2(params_i,params_j)       
-    return np.exp(-const*n)
-
-def gkernel(params_i,params_j,const):
-    n = norm2(params_i,params_j)       
-    return -2.0*const*(params_i-params_j)*np.exp(-const*n)
-
-def get_mean(params):
+def get_mean(cloud):
     params_mean = {}
-    for key in params[0]:
-        params_mean[key] = np.mean([params[j][key] for j in range(len(params))],axis=0)
+    for key in cloud[0]:
+        params_mean[key] = np.mean([cloud[j][key] for j in range(len(cloud))],axis=0)
     return params_mean
 
-def get_var(params,params_mean):
-     return np.var(params, axis = 0)
-     #return np.mean([ np.linalg.norm(param-params_mean)**2 for param in params])
+def get_var(cloud):
+     return np.var(cloud, axis = 0)
+     #return np.mean([ np.linalg.norm(param-params_mean)**2 for param in cloud])
 
-def normal_test(paramsf):
-    k, _ = stats.normaltest( (paramsf- np.mean(paramsf,axis=0))/np.var(paramsf,axis=0) , axis = 0)
-    print(np.mean(k))
-    #print("Normality test p-value - percentage of particles rejected: "  + str(1 - np.mean(np.greater(p,0.05))))
+#def normal_test(cloudf):
+#    k, _ = stats.normaltest( (cloudf- np.mean(cloudf,axis=0))/np.var(cloudf,axis=0) , axis = 0)
+#    print(np.mean(k))
+#    print("Normality test p-value - percentage of particles rejected: "  + str(1 - np.mean(np.greater(p,0.05))))
+
 
 #PLOTS-----------------------------------------------
 
@@ -139,7 +146,7 @@ def plot_cost(train_cost,cost_mean,legend= True,title = 'Training Cost Function'
     df.plot(style = styles,legend = legend)
     plt.xlabel('Iteration')
     plt.ylabel(title)
-    plt.legend([Line2D([0], [0], color = 'black', lw=4)],['Mean Tensor'])
+    plt.legend([Line2D([0], [0], color = 'black', lw=4)],['Cloud mean'])
 
 def plot_list(data, title = 'Mean cost function'):
     
@@ -149,21 +156,21 @@ def plot_list(data, title = 'Mean cost function'):
     plt.ylabel(title)
 
 
-def plot_distance_matrix(params, N_nn):
+def plot_distance_matrix(cloud, N):
     
-    n_params = len(params[0])
-    tensor_names = list(params[0].keys())
+    n_params = len(cloud[0])
+    tensor_names = list(cloud[0].keys())
 
     #flatten all tensors
-    paramsf = []
-    for nn in range(N_nn):
-        flatten = np.ndarray.flatten(params[nn][tensor_names[0]])
+    cloudf = []
+    for nn in range(N):
+        flatten = np.ndarray.flatten(cloud[nn][tensor_names[0]])
         for param in range(n_params):
-            flatten_temp = np.ndarray.flatten(params[nn][tensor_names[param]])
+            flatten_temp = np.ndarray.flatten(cloud[nn][tensor_names[param]])
             flatten = np.concatenate((flatten,flatten_temp),axis=None)
-        paramsf.append(flatten)    
+        cloudf.append(flatten)    
         
-    plot_matrix = [[norm2(paramsf[i],paramsf[j]) for j in range(N_nn)] for i in range(N_nn)] 
+    plot_matrix = [[norm2(cloudf[i],cloudf[j]) for j in range(N)] for i in range(N)] 
     plt.figure()
     plt.imshow(np.asarray(plot_matrix))
     plt.title("Distance between NN")

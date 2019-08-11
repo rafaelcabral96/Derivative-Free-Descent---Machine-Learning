@@ -1,6 +1,7 @@
 import numpy as np
 from sklearn.metrics import log_loss, f1_score
-from utils import convert_prob_into_class
+from utils import convert_prob_into_class, get_mean
+
 
 def init_layers(nn_architecture, seed = 99, dispersion_factor = 6):
     # random seed initiation
@@ -85,9 +86,7 @@ def get_cost_value(Y_hat, Y, type = 'binary_cross_entropy'):
     if type == 'binary_cross_entropy':
         m = Y_hat.shape[1]
         cost = -1 / m * (np.dot(Y, np.log(Y_hat).T) + np.dot(1 - Y, np.log(1 - Y_hat).T))
-    elif type == 'cross_entropy':
-        cost = log_loss(Y,np.transpose(Y_hat))
-    elif type == 'cross_entropy_T':
+    elif type == 'logistic_cross_entropy':
         cost = log_loss(np.transpose(Y),np.transpose(Y_hat))
     elif type == 'error_binary_classification':
         cost = 1.0-(Y_hat == Y).mean()
@@ -100,12 +99,15 @@ def get_cost_value(Y_hat, Y, type = 'binary_cross_entropy'):
 
 
 def get_accuracy_value(Y_hat, Y, type = 'binary_accuracy'):
-    
+
     if type == 'binary_accuracy':
+        acc = (Y_hat == Y).mean()    
+    elif type == 'logistic_accuracy':
         Y_hat_ = convert_prob_into_class(Y_hat)
         acc = (Y_hat_ == Y).all(axis=0).mean()
-    elif type == 'binary_accuracy2':
-        acc = (Y_hat == Y).mean()
+    elif type == 'sigmoid_accuracy':
+        Y_hat_ = convert_prob_into_class(Y_hat)
+        acc = (Y_hat_ == Y).all(axis=1).mean()
     elif type == 'f1_score':
         acc = f1_score(np.argmax(Y_hat, 1).astype('int32'), np.argmax(Y, 1).astype('int32'), average='macro')
     elif type == "rmse":
